@@ -3,47 +3,69 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ทางเลือกแห่งศีล 5 — เกมวิชวลโนเวลเพื่อการเรียนรู้</title>
+  <title>ทางเลือกแห่งศีล 5 — เกมวิชวลโนเวล 2 มิติ</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
   <div id="app">
-    <!-- ==================== 1. หน้าเข้าสู่ระบบ (Anonymous ID) ==================== -->
+    <!-- ==================== 1. หน้าปกเกมการ์ตูนและเข้าสู่ระบบ (Anonymous ID) ==================== -->
     <section id="screen-login" class="screen active">
-      <div class="login-backdrop"></div>
-      <div class="card login-card">
-        <div class="login-emblem">🪷</div>
-        <div class="badge-research">2D Visual Novel • ระดับมัธยมศึกษาตอนต้น</div>
-        <h1 class="app-title">ทางเลือกแห่งศีล 5</h1>
-        <p class="app-subtitle">
-          เกมดิจิทัลแบบเลือกทางเดินเพื่อส่งเสริมการประยุกต์ใช้หลักศีล 5 ในชีวิตประจำวัน
-        </p>
+      <div class="cover-scene">
+        <div class="cover-overlay"></div>
 
-        <form id="login-form" class="login-form">
-          <label for="anonymous-id">รหัสประจำตัวผู้เล่น (ไม่ระบุตัวตน)</label>
-          <input
-            type="text"
-            id="anonymous-id"
-            placeholder="เช่น S001, S002"
-            maxlength="12"
-            autocomplete="off"
-            required
-          />
-          <p class="privacy-note">
-            ระบบบันทึกเฉพาะรหัสประจำตัวแบบไม่ระบุตัวตนและผลการตัดสินใจ ไม่มีการเก็บชื่อ-นามสกุลจริง
-          </p>
-          <p id="login-error" class="error-text hidden"></p>
-          <button type="submit" class="btn btn-primary btn-full btn-glow">
-            เริ่มการเดินทาง →
-          </button>
-        </form>
+        <div class="cover-layout">
+          <!-- ตัวละครต้อนรับด้านซ้าย (บนจอมือถือจะอยู่ด้านบน) -->
+          <div class="cover-hero">
+            <img
+              src="assets/tonkla.png"
+              alt="สามเณรต้นกล้า"
+              class="cover-character"
+              onerror="this.style.display='none'"
+            />
+            <div class="speech-bubble-welcome">
+              เจริญพร! มาช่วยกันเลือกทางเดินแห่งความดีกันเถอะ
+            </div>
+          </div>
+
+          <!-- กล่องชื่อเกมและการ์ดเข้าเล่น -->
+          <div class="cover-content">
+            <div class="game-logo-box">
+              <div class="badge-cartoon">✨ เกมการ์ตูนวิชวลโนเวล 2 มิติ ✨</div>
+              <h1 class="game-title-cartoon">ทางเลือกแห่งศีล 5</h1>
+              <p class="game-subtitle-cartoon">
+                ผจญภัยในชีวิตประจำวัน • ฝึกสติและเจตนา • ครบ 5 ด่าน
+              </p>
+            </div>
+
+            <div class="card login-card">
+              <form id="login-form" class="login-form">
+                <label for="anonymous-id">กรอกรหัสประจำตัวผู้เล่น (ไม่ระบุตัวตน)</label>
+                <input
+                  type="text"
+                  id="anonymous-id"
+                  placeholder="เช่น S001, S002"
+                  maxlength="12"
+                  autocomplete="off"
+                  required
+                />
+                <p class="privacy-note">
+                  บันทึกเฉพาะรหัสประจำตัวและคะแนนการเรียนรู้ ไม่เก็บชื่อ-นามสกุลจริง
+                </p>
+                <p id="login-error" class="error-text hidden"></p>
+                <button type="submit" class="btn btn-game-start btn-full">
+                  ▶ เริ่มการผจญภัย!
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
-    <!-- ==================== 2. หน้าเมนูเลือกด่าน (ปลดล็อกครบ 5 ด่าน) ==================== -->
+    <!-- ==================== 2. หน้าเมนูเลือกด่าน (สีสันสดใส ครบ 5 ด่าน) ==================== -->
     <section id="screen-menu" class="screen">
       <header class="topbar">
         <div class="topbar-left">
@@ -55,16 +77,18 @@
         </div>
       </header>
 
-      <main class="menu-container">
-        <div class="menu-header">
-          <h2>เลือกบทเรียนการผจญภัย (เบญจศีล 5 คู่กับ เบญจธรรม 5)</h2>
+      <div class="menu-hero-banner">
+        <div class="menu-hero-inner">
+          <h2>แผนที่บทเรียนเบญจศีล 5 คู่กับเบญจธรรม 5</h2>
           <p>
-            ไม่มีการจับเวลาถอยหลัง ค่อยๆ สวมบทบาทเป็น <strong>สามเณรต้นกล้า</strong> และไตร่ตรองเจตนาในแต่ละสถานการณ์
+            สวมบทบาทเป็น <strong>สามเณรต้นกล้า</strong> ไม่มีจับเวลาถอยหลัง ค่อยๆ อ่านและไตร่ตรองเจตนาในทุกสถานการณ์
           </p>
         </div>
+      </div>
 
+      <main class="menu-container">
         <div class="stage-grid">
-          <article class="stage-card unlocked">
+          <article class="stage-card theme-1 unlocked">
             <div class="stage-card-top">
               <span class="stage-icon">🕊️</span>
               <span class="stage-number">ด่านที่ 1</span>
@@ -74,12 +98,12 @@
               ฝึกพิจารณาเจตนาในการไม่เบียดเบียนชีวิตและจิตใจ ผ่านเหตุการณ์ในวัด โรงเรียน และสื่อออนไลน์
             </p>
             <div class="stage-meta">⏱️ 10–15 นาที • 3 สถานการณ์</div>
-            <button class="btn btn-primary btn-full btn-start-stage" data-stage="stage1">
-              เข้าสู่ด่านที่ 1
+            <button class="btn btn-stage-1 btn-full btn-start-stage" data-stage="stage1">
+              ▶ เล่นด่านที่ 1
             </button>
           </article>
 
-          <article class="stage-card unlocked">
+          <article class="stage-card theme-2 unlocked">
             <div class="stage-card-top">
               <span class="stage-icon">⚖️</span>
               <span class="stage-number">ด่านที่ 2</span>
@@ -89,12 +113,12 @@
               การเคารพสิทธิในทรัพย์สิน การใช้ของส่วนรวมในวัด และการเคารพทรัพย์สินทางปัญญาในโลกออนไลน์
             </p>
             <div class="stage-meta">⏱️ 10–15 นาที • 3 สถานการณ์</div>
-            <button class="btn btn-primary btn-full btn-start-stage" data-stage="stage2">
-              เข้าสู่ด่านที่ 2
+            <button class="btn btn-stage-2 btn-full btn-start-stage" data-stage="stage2">
+              ▶ เล่นด่านที่ 2
             </button>
           </article>
 
-          <article class="stage-card unlocked">
+          <article class="stage-card theme-3 unlocked">
             <div class="stage-card-top">
               <span class="stage-icon">🛡️</span>
               <span class="stage-number">ด่านที่ 3</span>
@@ -104,12 +128,12 @@
               การสำรวมอินทรีย์ การวางตัวที่เหมาะสมตามสมณสารูป และการใช้สื่อออนไลน์อย่างมีขอบเขต
             </p>
             <div class="stage-meta">⏱️ 10–15 นาที • 3 สถานการณ์</div>
-            <button class="btn btn-primary btn-full btn-start-stage" data-stage="stage3">
-              เข้าสู่ด่านที่ 3
+            <button class="btn btn-stage-3 btn-full btn-start-stage" data-stage="stage3">
+              ▶ เล่นด่านที่ 3
             </button>
           </article>
 
-          <article class="stage-card unlocked">
+          <article class="stage-card theme-4 unlocked">
             <div class="stage-card-top">
               <span class="stage-icon">💎</span>
               <span class="stage-number">ด่านที่ 4</span>
@@ -119,12 +143,12 @@
               ความซื่อสัตย์ต่อตนเองและผู้อื่น การกล้ายอมรับความจริง และการรับมือกับข่าวปลอมในโลกออนไลน์
             </p>
             <div class="stage-meta">⏱️ 10–15 นาที • 3 สถานการณ์</div>
-            <button class="btn btn-primary btn-full btn-start-stage" data-stage="stage4">
-              เข้าสู่ด่านที่ 4
+            <button class="btn btn-stage-4 btn-full btn-start-stage" data-stage="stage4">
+              ▶ เล่นด่านที่ 4
             </button>
           </article>
 
-          <article class="stage-card unlocked">
+          <article class="stage-card theme-5 unlocked">
             <div class="stage-card-top">
               <span class="stage-icon">🧘</span>
               <span class="stage-number">ด่านที่ 5</span>
@@ -134,8 +158,8 @@
               การรู้เท่าทันสิ่งเสพติด สิ่งมึนเมา และพฤติกรรมเสพติดหน้าจอที่บั่นทอนสติสัมปชัญญะ
             </p>
             <div class="stage-meta">⏱️ 10–15 นาที • 3 สถานการณ์</div>
-            <button class="btn btn-primary btn-full btn-start-stage" data-stage="stage5">
-              เข้าสู่ด่านที่ 5
+            <button class="btn btn-stage-5 btn-full btn-start-stage" data-stage="stage5">
+              ▶ เล่นด่านที่ 5
             </button>
           </article>
         </div>
@@ -154,7 +178,7 @@
         </div>
         <div class="game-header-right">
           <div class="merit-hud" title="พลังสติและศีลในด่านนี้">
-            <span class="merit-label">✨ พลังศีล</span>
+            <span class="merit-label">⭐ พลังศีล</span>
             <div class="merit-bar-track">
               <div id="merit-bar-fill" class="merit-bar-fill"></div>
             </div>
@@ -170,22 +194,16 @@
       </div>
 
       <main class="vn-cinema-container">
-        <!-- เวทีฉากหลังและตัวละคร (ซ้อนกล่องบทสนทนาไว้ด้านล่าง) -->
         <div id="vn-stage" class="vn-stage bg-temple">
-          <!-- ฉากประกอบ SVG ด้านหลัง -->
           <div id="vn-scenery" class="vn-scenery"></div>
 
-          <!-- ป้ายบอกบริบทมุมซ้ายบน -->
           <div class="vn-context-tag" id="vn-context-tag">บริบท: วัด</div>
           <div class="vn-progress-pill" id="game-progress-text">0%</div>
-
-          <!-- จุดแสดงคะแนนลอย (+3 ✨) -->
           <div id="floating-score" class="floating-score hidden">+3 ✨</div>
 
-          <!-- ตัวละคร 2 มิติ -->
           <div id="vn-character-container" class="vn-character-container"></div>
 
-          <!-- กล่องบทสนทนาแบบ Glassmorphism ซ้อนด้านล่างฉาก -->
+          <!-- กล่องบทสนทนาโทนสว่างสดใสสไตล์เกมการ์ตูน -->
           <div id="vn-dialogue-box" class="vn-dialogue-overlay">
             <div class="speaker-row">
               <span id="vn-speaker-name" class="speaker-name">ผู้บรรยาย</span>
@@ -193,15 +211,15 @@
             </div>
             <p id="vn-dialogue-text" class="dialogue-text">กำลังโหลดเนื้อเรื่อง...</p>
             <div class="dialogue-footer">
-              <span class="tap-hint">แตะข้อความเพื่อเร่งตัวอักษร</span>
-              <button id="btn-next" class="btn btn-primary btn-next-vn">ดำเนินการต่อ ▶</button>
+              <span class="tap-hint">แตะข้อความเพื่ออ่านเร็วขึ้น</span>
+              <button id="btn-next" class="btn btn-game-next">ดำเนินการต่อ ▶</button>
             </div>
           </div>
 
-          <!-- หน้าต่างตัวเลือกแบบเกม (ซ้อนกลางฉาก) -->
+          <!-- หน้าต่างตัวเลือก -->
           <div id="vn-choices-box" class="vn-choices-overlay hidden">
             <div class="choices-card">
-              <div class="choices-badge">จุดตัดสินใจทางจริยธรรม</div>
+              <div class="choices-badge">💡 จุดตัดสินใจทางจริยธรรม</div>
               <div class="choices-prompt" id="vn-choices-prompt">
                 ท่านจะตัดสินใจอย่างไรในสถานการณ์นี้?
               </div>
@@ -225,7 +243,7 @@
                 <p id="feedback-dhamma"></p>
               </div>
               <div class="dialogue-actions">
-                <button id="btn-feedback-continue" class="btn btn-primary btn-glow">
+                <button id="btn-feedback-continue" class="btn btn-game-next">
                   เข้าสู่เหตุการณ์ต่อไป ▶
                 </button>
               </div>
@@ -239,7 +257,7 @@
     <section id="screen-summary" class="screen">
       <div class="card summary-card">
         <div class="summary-top">
-          <div class="badge-research">สรุปผลการเรียนรู้ท้ายด่าน (คะแนนระหว่างเรียน E1)</div>
+          <div class="badge-research">🏆 สรุปผลการเรียนรู้ท้ายด่าน (คะแนนระหว่างเรียน E1)</div>
           <h2 id="summary-stage-title">ด่านที่ 1: ปาณาติบาต คู่กับ เมตตากรุณา</h2>
           <p id="summary-sync-status" class="sync-status">กำลังบันทึกข้อมูลลงระบบ...</p>
         </div>
@@ -267,7 +285,7 @@
 
         <div class="summary-actions">
           <button id="btn-replay-stage" class="btn btn-secondary">🔄 เล่นด่านนี้อีกครั้ง</button>
-          <button id="btn-summary-menu" class="btn btn-primary btn-glow">กลับสู่หน้าเลือกด่าน</button>
+          <button id="btn-summary-menu" class="btn btn-game-next">🗺️ กลับสู่หน้าเลือกด่าน</button>
         </div>
       </div>
     </section>
