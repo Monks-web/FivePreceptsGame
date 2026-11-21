@@ -272,7 +272,14 @@ function openChoicesModal(node) {
   el.vnChoicesList.innerHTML = "";
   const letters = ["A", "B", "C", "D"];
 
-  node.choices.forEach((choice, idx) => {
+  // สุ่มสลับลำดับตัวเลือกทุกครั้งที่แสดงผล (Fisher-Yates Shuffle)
+  const shuffledChoices = [...node.choices];
+  for (let i = shuffledChoices.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffledChoices[i], shuffledChoices[j]] = [shuffledChoices[j], shuffledChoices[i]];
+  }
+
+  shuffledChoices.forEach((choice, idx) => {
     const btn = document.createElement("button");
     btn.className = "choice-btn";
     btn.innerHTML = `<span class="choice-key">${letters[idx] || idx + 1}</span><span>${choice.text}</span>`;
