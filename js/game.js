@@ -153,15 +153,25 @@ function renderCharacterVisual(characterId, emotion = "ปกติ", imageUrl =
   el.vnCharacterContainer.innerHTML = "";
   if (!characterId || characterId === "narrator") return;
 
-  if (imageUrl) {
+  // จับคู่ตัวละครกับไฟล์ภาพจริง (หากมีรูปตัวอื่นเพิ่มในอนาคต สามารถมาเพิ่มบรรทัดตรงนี้ได้เลย)
+  const characterImages = {
+    tonkla: "assets/tonkla.png"
+    // keng: "assets/keng.png",
+    // monk: "assets/monk.png",
+    // junior: "assets/junior.png"
+  };
+
+  const finalImageUrl = imageUrl || characterImages[characterId];
+
+  if (finalImageUrl) {
     const img = document.createElement("img");
-    img.src = imageUrl;
+    img.src = finalImageUrl;
     img.alt = characterId;
     el.vnCharacterContainer.appendChild(img);
     return;
   }
 
-  const palettes = {
+ const palettes = {
     tonkla: { robe: "#d97706", inner: "#b45309", skin: "#f6d5b0", label: "สามเณรต้นกล้า" },
     keng: { robe: "#c2410c", inner: "#9a3412", skin: "#efc79c", label: "สามเณรเก่ง" },
     monk: { robe: "#92400e", inner: "#78350f", skin: "#e8be94", label: "พระอาจารย์" },
