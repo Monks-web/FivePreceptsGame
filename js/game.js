@@ -17,13 +17,31 @@ const state = {
   fullCurrentText: ""
 };
 
-// จับคู่ตัวละครทั้งหมดกับไฟล์ภาพในโฟลเดอร์ assets/ อัตโนมัติ
+// จับคู่ตัวละครทั้งหมดกับไฟล์ภาพในโฟลเดอร์ assets/
 const CHARACTER_IMAGES = {
   tonkla: "assets/tonkla.png",
   keng: "assets/keng.png",
   monk: "assets/monk.png",
   junior: "assets/junior.png"
 };
+
+// โหลดภาพทั้งหมดล่วงหน้าตั้งแต่เปิดหน้าเว็บเพื่อลดอาการกระตุกตอนเปลี่ยนฉาก
+const PRELOAD_ASSETS = [
+  "assets/bg-cover.jpg",
+  "assets/bg-temple.jpg",
+  "assets/bg-school.jpg",
+  "assets/bg-online.jpg",
+  "assets/bg-dhamma.jpg",
+  "assets/tonkla.png",
+  "assets/keng.png",
+  "assets/monk.png",
+  "assets/junior.png"
+];
+
+PRELOAD_ASSETS.forEach((src) => {
+  const img = new Image();
+  img.src = src;
+});
 
 // ระบบเสียงประกอบเบาๆ ด้วย Web Audio API
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -41,6 +59,12 @@ function playTone(freq, duration = 0.08, type = "sine", volume = 0.05) {
   gain.connect(audioCtx.destination);
   osc.start();
   osc.stop(audioCtx.currentTime + duration);
+}
+
+// เสียงแจ้งเตือนแชท "ติ๊ง!" สำหรับบริบทสื่อออนไลน์
+function playChatPing() {
+  playTone(880, 0.09, "sine", 0.06);
+  setTimeout(() => playTone(1174.66, 0.14, "sine", 0.06), 85);
 }
 
 function playFeedbackSound(score) {
@@ -109,7 +133,52 @@ const el = {
 function showScreen(screenKey) {
   Object.values(screens).forEach((s) => s.classList.remove("active"));
   screens[screenKey].classList.add("active");
+  if (screenKey === "menu") renderStageBadges();
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+// ==================== ระบบสะสมดาวและตรา "ผ่านแล้ว" ในหน้าเลือกด่าน ====================
+function getUserProgress() {
+  if (!state.anonymousId) return {};
+  return JSON.parse(localStorage.getItem(`vn_progress_${state.anonymousId}`) || "{}");
+}
+
+function saveStageStars(stageId, percentage) {
+  if (!state.anonymousId) return;
+  const progress = getUserProgress();
+  const stars = percentage >= 80 ? 3 : percentage >= 50 ? 2 : 1;
+  const prevStars = progress[stageId]?.stars || 0;
+
+  progress[stageId] = {
+    completed: true,
+    stars: Math.max(prevStars, stars),
+    bestPercent: Math.max(progress[stageId]?.bestPercent || 0, percentage)
+  };
+  localStorage.setItem(`vn_progress_${state.anonymousId}`, JSON.stringify(progress));
+}
+
+function renderStageBadges() {
+  const progress = getUserProgress();
+  document.querySelectorAll(".btn-start-stage").forEach((btn) => {
+    const stageId = btn.getAttribute("data-stage");
+    const card = btn.closest(".stage-card");
+    if (!card) return;
+
+    const oldRow = card.querySelector(".stage-progress-row");
+    if (oldRow) oldRow.remove();
+
+    const info = progress[stageId];
+    if (info && info.completed) {
+      const starStr = "⭐".repeat(info.stars) + "☆".repeat(3 - info.stars);
+      const row = document.createElement("div");
+      row.className = "stage-progress-row";
+      row.innerHTML = `
+        <span class="stage-stars" title="คะแนนสูงสุด ${info.bestPercent}%">${starStr}</span>
+        <span class="stage-done-pill">ผ่านแล้ว ✓</span>
+      `;
+      card.insertBefore(row, btn);
+    }
+  });
 }
 
 function updateMeritHUD() {
@@ -126,7 +195,12 @@ function triggerFloatingScore(score) {
   el.floatingScore.style.animation = "floatUpFade 1.4s ease forwards";
 }
 
-// ภาพ SVG สำรองกรณีไฟล์ภาพใน assets/ ยังไม่ได้อัปโหลด
+function getEmotionAnimClass(emotion) {
+  if (["โกรธ", "หงุดหงิด", "ตกใจ"].includes(emotion)) return "char-shake";
+  if (["ครุ่นคิด", "กังวล"].includes(emotion)) return "char-think";
+  return "char-idle";
+}
+
 function buildFallbackSVG(characterId, emotion = "ปกติ") {
   const palettes = {
     tonkla: { robe: "#d97706", inner: "#b45309", skin: "#f6d5b0" },
@@ -140,7 +214,7 @@ function buildFallbackSVG(characterId, emotion = "ปกติ") {
   else if (emotion === "โกรธ" || emotion === "หงุดหงิด") mouthPath = "M88 112 L112 107";
 
   return `
-    <svg viewBox="0 0 200 250" width="240" height="300">
+    <svg class="${getEmotionAnimClass(emotion)}" viewBox="0 0 200 250" width="240" height="300">
       <path d="M30 250 C34 180 60 152 100 152 C140 152 166 180 170 250 Z" fill="${p.robe}" />
       <path d="M52 164 L148 250 L94 250 L42 188 Z" fill="${p.inner}" opacity="0.6" />
       <rect x="86" y="130" width="28" height="28" rx="10" fill="${p.skin}" />
@@ -151,16 +225,18 @@ function buildFallbackSVG(characterId, emotion = "ปกติ") {
     </svg>`;
 }
 
-// แสดงตัวละคร 2 มิติจากโฟลเดอร์ assets/ พร้อมระบบ fallback อัตโนมัติ
 function renderCharacterVisual(characterId, emotion = "ปกติ", imageUrl = "") {
   el.vnCharacterContainer.innerHTML = "";
   if (!characterId || characterId === "narrator") return;
 
+  const animClass = getEmotionAnimClass(emotion);
   const finalImageUrl = imageUrl || CHARACTER_IMAGES[characterId];
+
   if (finalImageUrl) {
     const img = document.createElement("img");
     img.src = finalImageUrl;
     img.alt = characterId;
+    img.className = animClass;
     img.onerror = () => {
       el.vnCharacterContainer.innerHTML = buildFallbackSVG(characterId, emotion);
     };
@@ -250,7 +326,16 @@ function renderNode(nodeId) {
   el.vnChoicesBox.classList.add("hidden");
   el.vnDialogueBox.classList.remove("hidden");
 
-  el.vnSpeakerName.textContent = node.speaker || "ผู้บรรยาย";
+  // สลับเป็นหน้าต่างแชทจำลอง (LINE) อัตโนมัติในบริบทสื่อออนไลน์
+  const isChatScene = node.context === "สื่อออนไลน์" && node.speaker !== "ผู้บรรยาย";
+  el.vnDialogueBox.classList.toggle("chat-mode", isChatScene);
+  if (isChatScene) {
+    playChatPing();
+    el.vnSpeakerName.textContent = `💬 ${node.speaker}`;
+  } else {
+    el.vnSpeakerName.textContent = node.speaker || "ผู้บรรยาย";
+  }
+
   if (node.emotion) {
     el.vnEmotionTag.textContent = node.emotion;
     el.vnEmotionTag.classList.remove("hidden");
@@ -272,7 +357,7 @@ function openChoicesModal(node) {
   el.vnChoicesList.innerHTML = "";
   const letters = ["A", "B", "C", "D"];
 
-  // สุ่มสลับลำดับตัวเลือกทุกครั้งที่แสดงผล (Fisher-Yates Shuffle)
+  // สุ่มสลับลำดับตัวเลือกทุกครั้ง (Fisher-Yates Shuffle)
   const shuffledChoices = [...node.choices];
   for (let i = shuffledChoices.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -344,6 +429,8 @@ async function finishStage() {
   el.gameProgressBar.style.width = "100%";
 
   const percentage = Math.round((state.score / state.maxScore) * 100);
+  saveStageStars(state.stageData.stageId, percentage);
+
   el.summaryStageTitle.textContent = state.stageData.title;
   el.summaryScoreValue.textContent = `${state.score}/${state.maxScore}`;
   el.summaryPercent.textContent = `${percentage}%`;
