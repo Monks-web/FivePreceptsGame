@@ -1,11 +1,12 @@
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+// การเชื่อมต่อ Firebase Cloud Firestore (Modular SDK v10 ผ่าน CDN สำหรับเว็บเบราว์เซอร์)
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyCPZfEYK2cLUizLnb9ORpCJmF9gzHN998U",
   authDomain: "fivepreceptsgame.firebaseapp.com",
@@ -16,6 +17,37 @@ const firebaseConfig = {
   measurementId: "G-E88SCHB9ZW"
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+const db = getFirestore(app);
+
+/**
+ * บันทึกประวัติการตัดสินใจรายข้อ (Log Data) ลง Collection: game_logs
+ */
+export async function saveDecisionLog(logPayload) {
+  try {
+    const docRef = await addDoc(collection(db, "game_logs"), {
+      ...logPayload,
+      timestamp: serverTimestamp()
+    });
+    return { mode: "firestore", saved: true, id: docRef.id };
+  } catch (error) {
+    console.error("เกิดข้อผิดพลาดในการบันทึก game_logs:", error);
+    return { mode: "firestore", saved: false, error: error.message };
+  }
+}
+
+/**
+ * บันทึกคะแนนระหว่างเรียน (E1) ท้ายด่าน ลง Collection: e1_scores
+ */
+export async function saveStageScore(scorePayload) {
+  try {
+    const docRef = await addDoc(collection(db, "e1_scores"), {
+      ...scorePayload,
+      completedAt: serverTimestamp()
+    });
+    return { mode: "firestore", saved: true, id: docRef.id };
+  } catch (error) {
+    console.error("เกิดข้อผิดพลาดในการบันทึก e1_scores:", error);
+    return { mode: "firestore", saved: false, error: error.message };
+  }
+}
