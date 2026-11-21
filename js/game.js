@@ -1,6 +1,5 @@
 import { saveDecisionLog, saveStageScore } from "./firebase-config.js";
 
-// สถานะหลักของแอปพลิเคชัน
 const state = {
   anonymousId: "",
   stageData: null,
@@ -8,13 +7,46 @@ const state = {
   visitedCount: 0,
   totalNodesEstimate: 1,
   score: 0,
-  maxScore: 0,
+  maxScore: 9,
   decisions: [],
   nodeStartTime: null,
-  pendingNextNodeId: null
+  pendingNextNodeId: null,
+  soundEnabled: true,
+  isTyping: false,
+  typingTimer: null,
+  fullCurrentText: ""
 };
 
-// อ้างอิง DOM Elements
+// ระบบเสียงประกอบเบาๆ ด้วย Web Audio API (ไม่ต้องใช้ไฟล์ MP3)
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+function playTone(freq, duration = 0.08, type = "sine", volume = 0.05) {
+  if (!state.soundEnabled) return;
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + duration);
+}
+
+function playFeedbackSound(score) {
+  if (score >= 3) {
+    playTone(523.25, 0.12, "sine", 0.07);
+    setTimeout(() => playTone(659.25, 0.14, "sine", 0.07), 100);
+    setTimeout(() => playTone(783.99, 0.25, "sine", 0.08), 200);
+  } else if (score >= 1) {
+    playTone(440, 0.15, "triangle", 0.06);
+  } else {
+    playTone(260, 0.22, "sawtooth", 0.04);
+  }
+}
+
 const screens = {
   login: document.getElementById("screen-login"),
   menu: document.getElementById("screen-menu"),
@@ -29,13 +61,18 @@ const el = {
   menuUserId: document.getElementById("menu-user-id"),
   btnLogout: document.getElementById("btn-logout"),
   btnBackMenu: document.getElementById("btn-back-menu"),
+  btnSoundToggle: document.getElementById("btn-sound-toggle"),
   gameStageTitle: document.getElementById("game-stage-title"),
   gameLocationLabel: document.getElementById("game-location-label"),
   gameProgressText: document.getElementById("game-progress-text"),
   gameProgressBar: document.getElementById("game-progress-bar"),
+  meritBarFill: document.getElementById("merit-bar-fill"),
+  meritScoreText: document.getElementById("merit-score-text"),
   gameUserId: document.getElementById("game-user-id"),
   vnStage: document.getElementById("vn-stage"),
+  vnScenery: document.getElementById("vn-scenery"),
   vnContextTag: document.getElementById("vn-context-tag"),
+  floatingScore: document.getElementById("floating-score"),
   vnCharacterContainer: document.getElementById("vn-character-container"),
   vnDialogueBox: document.getElementById("vn-dialogue-box"),
   vnSpeakerName: document.getElementById("vn-speaker-name"),
@@ -62,14 +99,56 @@ const el = {
   btnSummaryMenu: document.getElementById("btn-summary-menu")
 };
 
-// สลับหน้าจอ
 function showScreen(screenKey) {
   Object.values(screens).forEach((s) => s.classList.remove("active"));
   screens[screenKey].classList.add("active");
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-// สร้างภาพตัวละคร SVG 2 มิติ (รองรับการเปลี่ยนเป็นไฟล์รูปภาพจริงผ่าน imageUrl ใน JSON ภายหลังได้)
+function updateMeritHUD() {
+  const pct = Math.round((state.score / state.maxScore) * 100);
+  el.meritBarFill.style.width = `${pct}%`;
+  el.meritScoreText.textContent = `${state.score}/${state.maxScore}`;
+}
+
+function triggerFloatingScore(score) {
+  el.floatingScore.textContent = score > 0 ? `+${score} ✨` : "0 คะแนน";
+  el.floatingScore.classList.remove("hidden");
+  el.floatingScore.style.animation = "none";
+  void el.floatingScore.offsetWidth;
+  el.floatingScore.style.animation = "floatUpFade 1.4s ease forwards";
+}
+
+// วาดฉากหลัง SVG เพื่อเพิ่มมิติให้เกม
+function renderScenery(bgType) {
+  if (bgType === "bg-temple" || bgType === "bg-dhamma") {
+    el.vnScenery.innerHTML = `
+      <svg viewBox="0 0 1000 400" preserveAspectRatio="none" width="100%" height="100%">
+        <circle cx="820" cy="90" r="55" fill="#fffbeb" opacity="0.8" />
+        <path d="M120 260 L200 170 L280 260 Z" fill="#92400e" />
+        <path d="M150 260 L200 195 L250 260 Z" fill="#78350f" />
+        <rect x="195" y="135" width="10" height="40" fill="#92400e" />
+        <path d="M680 260 L740 160 L800 260 Z" fill="#b45309" />
+        <circle cx="90" cy="240" r="45" fill="#15803d" opacity="0.6" />
+        <circle cx="910" cy="245" r="55" fill="#15803d" opacity="0.6" />
+      </svg>`;
+  } else if (bgType === "bg-school") {
+    el.vnScenery.innerHTML = `
+      <svg viewBox="0 0 1000 400" preserveAspectRatio="none" width="100%" height="100%">
+        <rect x="180" y="60" width="640" height="170" rx="12" fill="#166534" stroke="#92400e" stroke-width="10" />
+        <rect x="40" y="70" width="100" height="140" fill="#ffffff" opacity="0.7" />
+        <rect x="860" y="70" width="100" height="140" fill="#ffffff" opacity="0.7" />
+      </svg>`;
+  } else {
+    el.vnScenery.innerHTML = `
+      <svg viewBox="0 0 1000 400" preserveAspectRatio="none" width="100%" height="100%">
+        <circle cx="200" cy="120" r="120" fill="#38bdf8" opacity="0.18" />
+        <circle cx="800" cy="160" r="150" fill="#818cf8" opacity="0.18" />
+      </svg>`;
+  }
+}
+
+// ตัวละคร 2 มิติ (รองรับไฟล์รูป PNG จริงผ่าน imageUrl ใน JSON ด้วย)
 function renderCharacterVisual(characterId, emotion = "ปกติ", imageUrl = "") {
   el.vnCharacterContainer.innerHTML = "";
   if (!characterId || characterId === "narrator") return;
@@ -90,48 +169,62 @@ function renderCharacterVisual(characterId, emotion = "ปกติ", imageUrl =
   };
 
   const p = palettes[characterId] || palettes.tonkla;
+  let mouthPath = "M88 106 Q100 115 112 106";
+  if (emotion === "กังวล" || emotion === "ตกใจ") mouthPath = "M92 111 Q100 103 108 111";
+  else if (emotion === "โกรธ" || emotion === "หงุดหงิด") mouthPath = "M88 112 L112 107";
+  else if (emotion === "ครุ่นคิด") mouthPath = "M92 108 L108 108";
 
-  // ปรับสีหน้าตามอารมณ์
-  let mouthPath = "M88 106 Q100 114 112 106"; // ยิ้มอ่อนโยน
-  if (emotion === "กังวล" || emotion === "ตกใจ") {
-    mouthPath = "M92 110 Q100 104 108 110";
-  } else if (emotion === "โกรธ" || emotion === "หงุดหงิด") {
-    mouthPath = "M88 112 L112 108";
-  } else if (emotion === "ครุ่นคิด") {
-    mouthPath = "M92 108 L108 108";
-  }
-
-  const svg = `
-    <svg viewBox="0 0 200 240" width="200" height="240" aria-label="${p.label}">
-      <!-- ลำตัวและจีวร -->
-      <path d="M35 240 C38 175 62 150 100 150 C138 150 162 175 165 240 Z" fill="${p.robe}" />
-      <path d="M55 162 L145 240 L95 240 L45 185 Z" fill="${p.inner}" opacity="0.55" />
-      <!-- คอและศีรษะ -->
-      <rect x="86" y="130" width="28" height="26" rx="10" fill="${p.skin}" />
-      <circle cx="100" cy="92" r="44" fill="${p.skin}" />
-      <!-- หู -->
-      <circle cx="56" cy="95" r="8" fill="${p.skin}" />
-      <circle cx="144" cy="95" r="8" fill="${p.skin}" />
-      <!-- ตา -->
-      <circle cx="84" cy="88" r="4.5" fill="#1e293b" />
-      <circle cx="116" cy="88" r="4.5" fill="#1e293b" />
-      <!-- คิ้ว -->
-      <path d="M74 78 Q84 74 93 78" stroke="#475569" stroke-width="3" fill="none" stroke-linecap="round" />
-      <path d="M107 78 Q116 74 126 78" stroke="#475569" stroke-width="3" fill="none" stroke-linecap="round" />
-      <!-- ปาก -->
+  el.vnCharacterContainer.innerHTML = `
+    <svg viewBox="0 0 200 250" width="240" height="300" aria-label="${p.label}">
+      <path d="M30 250 C34 180 60 152 100 152 C140 152 166 180 170 250 Z" fill="${p.robe}" />
+      <path d="M52 164 L148 250 L94 250 L42 188 Z" fill="${p.inner}" opacity="0.6" />
+      <rect x="86" y="130" width="28" height="28" rx="10" fill="${p.skin}" />
+      <circle cx="100" cy="92" r="45" fill="${p.skin}" />
+      <circle cx="55" cy="95" r="8" fill="${p.skin}" />
+      <circle cx="145" cy="95" r="8" fill="${p.skin}" />
+      <circle cx="84" cy="88" r="5" fill="#1e293b" />
+      <circle cx="116" cy="88" r="5" fill="#1e293b" />
+      <circle cx="86" cy="86" r="1.8" fill="#ffffff" />
+      <circle cx="118" cy="86" r="1.8" fill="#ffffff" />
+      <path d="M74 77 Q84 73 93 77" stroke="#475569" stroke-width="3" fill="none" stroke-linecap="round" />
+      <path d="M107 77 Q116 73 126 77" stroke="#475569" stroke-width="3" fill="none" stroke-linecap="round" />
       <path d="${mouthPath}" stroke="#7c2d12" stroke-width="3.2" fill="none" stroke-linecap="round" />
     </svg>
   `;
-  el.vnCharacterContainer.innerHTML = svg;
 }
 
-// โหลดข้อมูลด่านจากไฟล์ JSON
+// เอฟเฟกต์พิมพ์ดีดทีละตัวอักษร
+function typeText(text, onComplete) {
+  clearInterval(state.typingTimer);
+  state.isTyping = true;
+  state.fullCurrentText = text;
+  el.vnDialogueText.textContent = "";
+  let i = 0;
+
+  state.typingTimer = setInterval(() => {
+    if (i < text.length) {
+      el.vnDialogueText.textContent += text.charAt(i);
+      if (i % 4 === 0) playTone(520, 0.02, "sine", 0.015);
+      i++;
+    } else {
+      clearInterval(state.typingTimer);
+      state.isTyping = false;
+      if (onComplete) onComplete();
+    }
+  }, 22);
+}
+
+function finishTypingImmediately() {
+  if (!state.isTyping) return;
+  clearInterval(state.typingTimer);
+  state.isTyping = false;
+  el.vnDialogueText.textContent = state.fullCurrentText;
+}
+
 async function loadStage(stageId) {
   try {
     const response = await fetch(`data/${stageId}.json`);
-    if (!response.ok) {
-      throw new Error(`ไม่พบไฟล์ข้อมูลด่าน data/${stageId}.json`);
-    }
+    if (!response.ok) throw new Error(`ไม่พบไฟล์ data/${stageId}.json`);
     const data = await response.json();
 
     state.stageData = data;
@@ -145,14 +238,14 @@ async function loadStage(stageId) {
 
     el.gameStageTitle.textContent = data.title;
     el.gameUserId.textContent = state.anonymousId;
+    updateMeritHUD();
     showScreen("game");
     renderNode(state.currentNodeId);
   } catch (err) {
-    alert(`ไม่สามารถโหลดด่านได้: ${err.message}\n(หมายเหตุ: กรุณาเปิดผ่าน Web Server เช่น VS Code Live Server)`);
+    alert(`ไม่สามารถโหลดด่านได้: ${err.message}`);
   }
 }
 
-// แสดงผลโหนดปัจจุบันตามโครงสร้าง JSON
 function renderNode(nodeId) {
   const node = state.stageData.nodes[nodeId];
   if (!node) {
@@ -164,28 +257,24 @@ function renderNode(nodeId) {
   state.visitedCount += 1;
   state.nodeStartTime = Date.now();
 
-  // อัปเดตแถบความคืบหน้า
   const percent = Math.min(95, Math.round((state.visitedCount / state.totalNodesEstimate) * 100));
-  el.gameProgressText.textContent = `ความคืบหน้า ${percent}%`;
+  el.gameProgressText.textContent = `${percent}%`;
   el.gameProgressBar.style.width = `${percent}%`;
 
-  // อัปเดตฉากหลังและบริบท
-  el.vnStage.className = `vn-stage ${node.background || "bg-temple"}`;
+  const bgClass = node.background || "bg-temple";
+  el.vnStage.className = `vn-stage ${bgClass}`;
+  renderScenery(bgClass);
+
   el.vnContextTag.textContent = `บริบท: ${node.context || "ทั่วไป"}`;
   el.gameLocationLabel.textContent = `สถานที่: ${node.location || "-"}`;
 
-  // แสดงตัวละคร
   renderCharacterVisual(node.characterId, node.emotion, node.imageUrl || "");
 
-  // ซ่อนกล่องอื่นๆ ก่อนแสดงกล่องที่ตรงประเภท
   el.vnFeedbackBox.classList.add("hidden");
   el.vnChoicesBox.classList.add("hidden");
   el.vnDialogueBox.classList.remove("hidden");
 
-  // แสดงบทสนทนา
   el.vnSpeakerName.textContent = node.speaker || "ผู้บรรยาย";
-  el.vnDialogueText.textContent = node.text;
-
   if (node.emotion) {
     el.vnEmotionTag.textContent = node.emotion;
     el.vnEmotionTag.classList.remove("hidden");
@@ -193,32 +282,40 @@ function renderNode(nodeId) {
     el.vnEmotionTag.classList.add("hidden");
   }
 
-  // กรณีเป็นโหนดตัวเลือก (Branching Moral Dilemma)
   if (node.type === "choice") {
-    el.btnNext.classList.add("hidden");
-    el.vnChoicesBox.classList.remove("hidden");
-    el.vnChoicesPrompt.textContent = node.prompt || "ท่านจะตัดสินใจอย่างไรในสถานการณ์นี้?";
-    el.vnChoicesList.innerHTML = "";
-
-    node.choices.forEach((choice) => {
-      const btn = document.createElement("button");
-      btn.className = "choice-btn";
-      btn.textContent = choice.text;
-      btn.addEventListener("click", () => handleChoiceSelect(node, choice));
-      el.vnChoicesList.appendChild(btn);
-    });
-  } else {
-    // กรณีเป็นโหนดบทสนทนาปกติหรือจุดบรรจบ (Bottleneck)
     el.btnNext.classList.remove("hidden");
-    el.btnNext.textContent = node.next === "END" ? "สรุปผลการเรียนรู้ท้ายด่าน →" : "ดำเนินการต่อ →";
+    el.btnNext.textContent = "เลือกทางเดิน ▶";
+    typeText(node.text);
+  } else {
+    el.btnNext.classList.remove("hidden");
+    el.btnNext.textContent = node.next === "END" ? "ดูสรุปผลท้ายด่าน ▶" : "ดำเนินการต่อ ▶";
+    typeText(node.text);
   }
 }
 
-// จัดการเมื่อผู้เรียนเลือกคำตอบ (บันทึก Log Data + แสดง Immediate Feedback)
+function openChoicesModal(node) {
+  el.vnChoicesBox.classList.remove("hidden");
+  el.vnChoicesPrompt.textContent = node.prompt || "ท่านจะตัดสินใจอย่างไรในสถานการณ์นี้?";
+  el.vnChoicesList.innerHTML = "";
+  const letters = ["A", "B", "C", "D"];
+
+  node.choices.forEach((choice, idx) => {
+    const btn = document.createElement("button");
+    btn.className = "choice-btn";
+    btn.innerHTML = `<span class="choice-key">${letters[idx] || idx + 1}</span><span>${choice.text}</span>`;
+    btn.addEventListener("click", () => handleChoiceSelect(node, choice));
+    el.vnChoicesList.appendChild(btn);
+  });
+}
+
 async function handleChoiceSelect(node, choice) {
   const timeSpentSec = Math.max(1, Math.round((Date.now() - state.nodeStartTime) / 1000));
   state.score += choice.score;
   state.pendingNextNodeId = choice.next;
+
+  playFeedbackSound(choice.score);
+  updateMeritHUD();
+  triggerFloatingScore(choice.score);
 
   const decisionRecord = {
     context: node.context,
@@ -232,7 +329,6 @@ async function handleChoiceSelect(node, choice) {
   };
   state.decisions.push(decisionRecord);
 
-  // บันทึก Log Data ลง Firebase Cloud Firestore (ไม่บล็อกหน้าจอผู้เล่น)
   saveDecisionLog({
     anonymousId: state.anonymousId,
     stageId: state.stageData.stageId,
@@ -245,54 +341,44 @@ async function handleChoiceSelect(node, choice) {
     timeSpentSec
   });
 
-  // แสดงผลตอบรับทันที (Immediate Feedback)
-  el.vnDialogueBox.classList.add("hidden");
   el.vnChoicesBox.classList.add("hidden");
   el.vnFeedbackBox.classList.remove("hidden");
 
-  // ปรับสีหน้าตัวละครตามปฏิกิริยา
   if (choice.reactionCharacterId) {
     renderCharacterVisual(choice.reactionCharacterId, choice.reactionEmotion || "ปกติ");
   }
 
   el.feedbackBadge.textContent = choice.preceptStatus;
   el.feedbackBadge.className = "feedback-badge";
-  if (choice.score >= 3) {
-    el.feedbackBadge.classList.add("high");
-  } else if (choice.score >= 1) {
-    el.feedbackBadge.classList.add("mid");
-  } else {
-    el.feedbackBadge.classList.add("low");
-  }
+  if (choice.score >= 3) el.feedbackBadge.classList.add("high");
+  else if (choice.score >= 1) el.feedbackBadge.classList.add("mid");
+  else el.feedbackBadge.classList.add("low");
 
   el.feedbackScoreChip.textContent = `+${choice.score} คะแนน`;
   el.feedbackReaction.textContent = choice.feedbackReaction;
   el.feedbackDhamma.textContent = choice.feedbackDhamma;
 }
 
-// จบด่านและแสดงหน้าสรุปบทเรียน (Debriefing) + บันทึกคะแนน E1
 async function finishStage() {
-  el.gameProgressText.textContent = "ความคืบหน้า 100%";
+  el.gameProgressText.textContent = "100%";
   el.gameProgressBar.style.width = "100%";
 
   const percentage = Math.round((state.score / state.maxScore) * 100);
-
   el.summaryStageTitle.textContent = state.stageData.title;
   el.summaryScoreValue.textContent = `${state.score}/${state.maxScore}`;
   el.summaryPercent.textContent = `${percentage}%`;
 
   if (percentage >= 80) {
     el.summaryLevelDesc.textContent =
-      "ยอดเยี่ยมมาก ท่านสามารถพิจารณาเจตนาและประยุกต์ใช้หลักศีลข้อ 1 คู่กับเมตตากรุณาได้อย่างเหมาะสมในทุกบริบท";
+      "ยอดเยี่ยมมาก ท่านสามารถพิจารณาเจตนาและประยุกต์ใช้หลักศีลคู่กับเบญจธรรมได้อย่างเหมาะสมในทุกบริบท";
   } else if (percentage >= 50) {
     el.summaryLevelDesc.textContent =
-      "อยู่ในเกณฑ์ดี ท่านหลีกเลี่ยงการเบียดเบียนโดยตรงได้ แต่ยังมีบางสถานการณ์ที่สามารถแสดงความเมตตากรุณาและการช่วยเหลือเชิงรุกได้มากขึ้น";
+      "อยู่ในเกณฑ์ดี ท่านหลีกเลี่ยงการละเมิดศีลโดยตรงได้ แต่ยังมีบางสถานการณ์ที่สามารถแสดงคุณธรรมเชิงรุกได้มากขึ้น";
   } else {
     el.summaryLevelDesc.textContent =
-      "ควรทบทวนเพิ่มเติม ลองพิจารณาผลกระทบของเจตนาและการกระทำทั้งทางกาย วาจา และสื่อออนไลน์ร่วมกับเพื่อนและพระอาจารย์ในการอภิปราย";
+      "ควรทบทวนเพิ่มเติม ลองพิจารณาผลกระทบของเจตนาและการกระทำร่วมกับเพื่อนและพระอาจารย์ในการอภิปราย";
   }
 
-  // แสดงรายการทบทวนการตัดสินใจ
   el.summaryDecisionsList.innerHTML = "";
   state.decisions.forEach((item, index) => {
     const div = document.createElement("div");
@@ -308,7 +394,6 @@ async function finishStage() {
     el.summaryDecisionsList.appendChild(div);
   });
 
-  // แสดงคำถาม Debriefing สำหรับห้องเรียน
   el.summaryDebriefingList.innerHTML = "";
   state.stageData.debriefingQuestions.forEach((q) => {
     const li = document.createElement("li");
@@ -319,7 +404,6 @@ async function finishStage() {
   el.summarySyncStatus.textContent = "กำลังบันทึกคะแนนระหว่างเรียน (E1) ลงฐานข้อมูล...";
   showScreen("summary");
 
-  // บันทึกคะแนน E1 ลง Firestore
   const result = await saveStageScore({
     anonymousId: state.anonymousId,
     stageId: state.stageData.stageId,
@@ -330,10 +414,8 @@ async function finishStage() {
     decisionsSummary: state.decisions
   });
 
-  if (result.saved && result.mode === "firestore") {
+  if (result.saved) {
     el.summarySyncStatus.textContent = "บันทึกคะแนน E1 และประวัติการตัดสินใจลง Firebase Firestore เรียบร้อยแล้ว";
-  } else if (result.saved && result.mode === "local") {
-    el.summarySyncStatus.textContent = "โหมดทดสอบออฟไลน์: บันทึกคะแนนลงเครื่องเรียบร้อยแล้ว (รอเชื่อมต่อ Firebase Config)";
   } else {
     el.summarySyncStatus.textContent = "ไม่สามารถเชื่อมต่อฐานข้อมูลได้ชั่วคราว กรุณาตรวจสอบอินเทอร์เน็ตหรือสิทธิ์ Firestore";
   }
@@ -351,6 +433,7 @@ el.loginForm.addEventListener("submit", (e) => {
     return;
   }
 
+  playTone(660, 0.1, "sine", 0.06);
   el.loginError.classList.add("hidden");
   state.anonymousId = rawId;
   sessionStorage.setItem("vn_anonymous_id", rawId);
@@ -365,22 +448,42 @@ el.btnLogout.addEventListener("click", () => {
   showScreen("login");
 });
 
+el.btnSoundToggle.addEventListener("click", () => {
+  state.soundEnabled = !state.soundEnabled;
+  el.btnSoundToggle.textContent = state.soundEnabled ? "🔊" : "🔇";
+});
+
 document.querySelectorAll(".btn-start-stage").forEach((btn) => {
   btn.addEventListener("click", () => {
-    const stageId = btn.getAttribute("data-stage");
-    loadStage(stageId);
+    playTone(580, 0.08, "sine", 0.06);
+    loadStage(btn.getAttribute("data-stage"));
   });
 });
 
 el.btnBackMenu.addEventListener("click", () => {
-  if (confirm("ต้องการกลับสู่หน้าเลือกด่านหรือไม่? ความคืบหน้าของด่านปัจจุบันจะไม่ถูกบันทึกเป็นคะแนน E1")) {
+  if (confirm("ต้องการกลับสู่หน้าเลือกด่านหรือไม่? ความคืบหน้าของด่านปัจจุบันจะไม่ถูกบันทึก")) {
+    clearInterval(state.typingTimer);
     showScreen("menu");
   }
 });
 
+el.vnDialogueBox.addEventListener("click", (e) => {
+  if (e.target.closest("#btn-next")) return;
+  if (state.isTyping) finishTypingImmediately();
+});
+
 el.btnNext.addEventListener("click", () => {
+  if (state.isTyping) {
+    finishTypingImmediately();
+    return;
+  }
+  playTone(520, 0.06, "sine", 0.05);
   const currentNode = state.stageData.nodes[state.currentNodeId];
-  if (!currentNode || currentNode.next === "END") {
+  if (!currentNode) return;
+
+  if (currentNode.type === "choice") {
+    openChoicesModal(currentNode);
+  } else if (currentNode.next === "END") {
     finishStage();
   } else {
     renderNode(currentNode.next);
@@ -388,6 +491,7 @@ el.btnNext.addEventListener("click", () => {
 });
 
 el.btnFeedbackContinue.addEventListener("click", () => {
+  playTone(520, 0.06, "sine", 0.05);
   if (!state.pendingNextNodeId || state.pendingNextNodeId === "END") {
     finishStage();
   } else {
@@ -396,16 +500,13 @@ el.btnFeedbackContinue.addEventListener("click", () => {
 });
 
 el.btnReplayStage.addEventListener("click", () => {
-  if (state.stageData) {
-    loadStage(state.stageData.stageId);
-  }
+  if (state.stageData) loadStage(state.stageData.stageId);
 });
 
 el.btnSummaryMenu.addEventListener("click", () => {
   showScreen("menu");
 });
 
-// ตรวจสอบ session เดิมหากมีการรีเฟรชหน้าเว็บ
 const savedSessionId = sessionStorage.getItem("vn_anonymous_id");
 if (savedSessionId) {
   state.anonymousId = savedSessionId;
