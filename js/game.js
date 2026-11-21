@@ -17,7 +17,15 @@ const state = {
   fullCurrentText: ""
 };
 
-// ระบบเสียงประกอบเบาๆ ด้วย Web Audio API (ไม่ต้องใช้ไฟล์ MP3)
+// จับคู่ตัวละครทั้งหมดกับไฟล์ภาพในโฟลเดอร์ assets/ อัตโนมัติ
+const CHARACTER_IMAGES = {
+  tonkla: "assets/tonkla.png",
+  keng: "assets/keng.png",
+  monk: "assets/monk.png",
+  junior: "assets/junior.png"
+};
+
+// ระบบเสียงประกอบเบาๆ ด้วย Web Audio API
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
 function playTone(freq, duration = 0.08, type = "sine", volume = 0.05) {
@@ -70,7 +78,6 @@ const el = {
   meritScoreText: document.getElementById("merit-score-text"),
   gameUserId: document.getElementById("game-user-id"),
   vnStage: document.getElementById("vn-stage"),
-  vnScenery: document.getElementById("vn-scenery"),
   vnContextTag: document.getElementById("vn-context-tag"),
   floatingScore: document.getElementById("floating-score"),
   vnCharacterContainer: document.getElementById("vn-character-container"),
@@ -119,91 +126,51 @@ function triggerFloatingScore(score) {
   el.floatingScore.style.animation = "floatUpFade 1.4s ease forwards";
 }
 
-// วาดฉากหลัง SVG เพื่อเพิ่มมิติให้เกม
-function renderScenery(bgType) {
-  if (bgType === "bg-temple" || bgType === "bg-dhamma") {
-    el.vnScenery.innerHTML = `
-      <svg viewBox="0 0 1000 400" preserveAspectRatio="none" width="100%" height="100%">
-        <circle cx="820" cy="90" r="55" fill="#fffbeb" opacity="0.8" />
-        <path d="M120 260 L200 170 L280 260 Z" fill="#92400e" />
-        <path d="M150 260 L200 195 L250 260 Z" fill="#78350f" />
-        <rect x="195" y="135" width="10" height="40" fill="#92400e" />
-        <path d="M680 260 L740 160 L800 260 Z" fill="#b45309" />
-        <circle cx="90" cy="240" r="45" fill="#15803d" opacity="0.6" />
-        <circle cx="910" cy="245" r="55" fill="#15803d" opacity="0.6" />
-      </svg>`;
-  } else if (bgType === "bg-school") {
-    el.vnScenery.innerHTML = `
-      <svg viewBox="0 0 1000 400" preserveAspectRatio="none" width="100%" height="100%">
-        <rect x="180" y="60" width="640" height="170" rx="12" fill="#166534" stroke="#92400e" stroke-width="10" />
-        <rect x="40" y="70" width="100" height="140" fill="#ffffff" opacity="0.7" />
-        <rect x="860" y="70" width="100" height="140" fill="#ffffff" opacity="0.7" />
-      </svg>`;
-  } else {
-    el.vnScenery.innerHTML = `
-      <svg viewBox="0 0 1000 400" preserveAspectRatio="none" width="100%" height="100%">
-        <circle cx="200" cy="120" r="120" fill="#38bdf8" opacity="0.18" />
-        <circle cx="800" cy="160" r="150" fill="#818cf8" opacity="0.18" />
-      </svg>`;
-  }
-}
-
-// ตัวละคร 2 มิติ (รองรับไฟล์รูป PNG จริงผ่าน imageUrl ใน JSON ด้วย)
-function renderCharacterVisual(characterId, emotion = "ปกติ", imageUrl = "") {
-  el.vnCharacterContainer.innerHTML = "";
-  if (!characterId || characterId === "narrator") return;
-
-  // จับคู่ตัวละครกับไฟล์ภาพจริง (หากมีรูปตัวอื่นเพิ่มในอนาคต สามารถมาเพิ่มบรรทัดตรงนี้ได้เลย)
-  const characterImages = {
-    tonkla: "assets/tonkla.png"
-    // keng: "assets/keng.png",
-    // monk: "assets/monk.png",
-    // junior: "assets/junior.png"
+// ภาพ SVG สำรองกรณีไฟล์ภาพใน assets/ ยังไม่ได้อัปโหลด
+function buildFallbackSVG(characterId, emotion = "ปกติ") {
+  const palettes = {
+    tonkla: { robe: "#d97706", inner: "#b45309", skin: "#f6d5b0" },
+    keng: { robe: "#c2410c", inner: "#9a3412", skin: "#efc79c" },
+    monk: { robe: "#92400e", inner: "#78350f", skin: "#e8be94" },
+    junior: { robe: "#ea580c", inner: "#c2410c", skin: "#f8dcc0" }
   };
-
-  const finalImageUrl = imageUrl || characterImages[characterId];
-
-  if (finalImageUrl) {
-    const img = document.createElement("img");
-    img.src = finalImageUrl;
-    img.alt = characterId;
-    el.vnCharacterContainer.appendChild(img);
-    return;
-  }
-
- const palettes = {
-    tonkla: { robe: "#d97706", inner: "#b45309", skin: "#f6d5b0", label: "สามเณรต้นกล้า" },
-    keng: { robe: "#c2410c", inner: "#9a3412", skin: "#efc79c", label: "สามเณรเก่ง" },
-    monk: { robe: "#92400e", inner: "#78350f", skin: "#e8be94", label: "พระอาจารย์" },
-    junior: { robe: "#ea580c", inner: "#c2410c", skin: "#f8dcc0", label: "สามเณรรุ่นน้อง" }
-  };
-
   const p = palettes[characterId] || palettes.tonkla;
   let mouthPath = "M88 106 Q100 115 112 106";
   if (emotion === "กังวล" || emotion === "ตกใจ") mouthPath = "M92 111 Q100 103 108 111";
   else if (emotion === "โกรธ" || emotion === "หงุดหงิด") mouthPath = "M88 112 L112 107";
-  else if (emotion === "ครุ่นคิด") mouthPath = "M92 108 L108 108";
 
-  el.vnCharacterContainer.innerHTML = `
-    <svg viewBox="0 0 200 250" width="240" height="300" aria-label="${p.label}">
+  return `
+    <svg viewBox="0 0 200 250" width="240" height="300">
       <path d="M30 250 C34 180 60 152 100 152 C140 152 166 180 170 250 Z" fill="${p.robe}" />
       <path d="M52 164 L148 250 L94 250 L42 188 Z" fill="${p.inner}" opacity="0.6" />
       <rect x="86" y="130" width="28" height="28" rx="10" fill="${p.skin}" />
       <circle cx="100" cy="92" r="45" fill="${p.skin}" />
-      <circle cx="55" cy="95" r="8" fill="${p.skin}" />
-      <circle cx="145" cy="95" r="8" fill="${p.skin}" />
       <circle cx="84" cy="88" r="5" fill="#1e293b" />
       <circle cx="116" cy="88" r="5" fill="#1e293b" />
-      <circle cx="86" cy="86" r="1.8" fill="#ffffff" />
-      <circle cx="118" cy="86" r="1.8" fill="#ffffff" />
-      <path d="M74 77 Q84 73 93 77" stroke="#475569" stroke-width="3" fill="none" stroke-linecap="round" />
-      <path d="M107 77 Q116 73 126 77" stroke="#475569" stroke-width="3" fill="none" stroke-linecap="round" />
       <path d="${mouthPath}" stroke="#7c2d12" stroke-width="3.2" fill="none" stroke-linecap="round" />
-    </svg>
-  `;
+    </svg>`;
 }
 
-// เอฟเฟกต์พิมพ์ดีดทีละตัวอักษร
+// แสดงตัวละคร 2 มิติจากโฟลเดอร์ assets/ พร้อมระบบ fallback อัตโนมัติ
+function renderCharacterVisual(characterId, emotion = "ปกติ", imageUrl = "") {
+  el.vnCharacterContainer.innerHTML = "";
+  if (!characterId || characterId === "narrator") return;
+
+  const finalImageUrl = imageUrl || CHARACTER_IMAGES[characterId];
+  if (finalImageUrl) {
+    const img = document.createElement("img");
+    img.src = finalImageUrl;
+    img.alt = characterId;
+    img.onerror = () => {
+      el.vnCharacterContainer.innerHTML = buildFallbackSVG(characterId, emotion);
+    };
+    el.vnCharacterContainer.appendChild(img);
+    return;
+  }
+
+  el.vnCharacterContainer.innerHTML = buildFallbackSVG(characterId, emotion);
+}
+
 function typeText(text, onComplete) {
   clearInterval(state.typingTimer);
   state.isTyping = true;
@@ -214,14 +181,14 @@ function typeText(text, onComplete) {
   state.typingTimer = setInterval(() => {
     if (i < text.length) {
       el.vnDialogueText.textContent += text.charAt(i);
-      if (i % 4 === 0) playTone(520, 0.02, "sine", 0.015);
+      if (i % 4 === 0) playTone(540, 0.02, "sine", 0.014);
       i++;
     } else {
       clearInterval(state.typingTimer);
       state.isTyping = false;
       if (onComplete) onComplete();
     }
-  }, 22);
+  }, 20);
 }
 
 function finishTypingImmediately() {
@@ -273,7 +240,6 @@ function renderNode(nodeId) {
 
   const bgClass = node.background || "bg-temple";
   el.vnStage.className = `vn-stage ${bgClass}`;
-  renderScenery(bgClass);
 
   el.vnContextTag.textContent = `บริบท: ${node.context || "ทั่วไป"}`;
   el.gameLocationLabel.textContent = `สถานที่: ${node.location || "-"}`;
@@ -293,14 +259,11 @@ function renderNode(nodeId) {
   }
 
   if (node.type === "choice") {
-    el.btnNext.classList.remove("hidden");
     el.btnNext.textContent = "เลือกทางเดิน ▶";
-    typeText(node.text);
   } else {
-    el.btnNext.classList.remove("hidden");
     el.btnNext.textContent = node.next === "END" ? "ดูสรุปผลท้ายด่าน ▶" : "ดำเนินการต่อ ▶";
-    typeText(node.text);
   }
+  typeText(node.text);
 }
 
 function openChoicesModal(node) {
