@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Research Dashboard — คะแนน E1 และ Log Data</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f1f5f9;
+      --card: #ffffff;
+      --primary: #0f766e;
+      --primary-hover: #115e59;
+      --accent: #d97706;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --danger: #dc2626;
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Sarabun", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    h1, h2, h3, th, button, .kpi-value {
+      font-family: "Prompt", sans-serif;
+    }
+
+    .hidden { display: none !important; }
+
+    /* หน้าล็อกรหัสผ่านผู้วิจัย */
+    .gate-screen {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: linear-gradient(135deg, #0f766e 0%, #134e4a 100%);
+    }
+
+    .gate-card {
+      background: var(--card);
+      width: 100%;
+      max-width: 400px;
+      padding: 32px 26px;
+      border-radius: 18px;
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.25);
+      text-align: center;
+    }
+
+    .gate-card h1 {
+      font-size: 1.45rem;
+      color: var(--primary);
+      margin-bottom: 6px;
+    }
+
+    .gate-card p {
+      font-size: 0.92rem;
+      color: var(--muted);
+      margin-bottom: 20px;
+    }
+
+    .gate-card input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      font-size: 1.1rem;
+      font-family: "Prompt", sans-serif;
+      text-align: center;
+      letter-spacing: 3px;
+      margin-bottom: 14px;
+      outline: none;
+    }
+
+    .gate-card input:focus {
+      border-color: var(--primary);
+    }
+
+    .error-msg {
+      color: var(--danger);
+      font-size: 0.9rem;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+
+    /* ปุ่ม */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 18px;
+      border-radius: 10px;
+      border: none;
+      font-size: 0.92rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s ease, transform 0.1s ease;
+    }
+
+    .btn:active { transform: scale(0.98); }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-export { background: var(--accent); color: #fff; }
+    .btn-export:hover { background: #b45309; }
+    .btn-outline { background: #fff; color: var(--text); border: 1px solid #cbd5e1; }
+    .btn-outline:hover { background: #f8fafc; }
+    .btn-full { width: 100%; }
+
+    /* แถบด้านบน */
+    .topbar {
+      background: #ffffff;
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .topbar-title h1 {
+      font-size: 1.25rem;
+      color: var(--primary);
+    }
+
+    .topbar-title small {
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 24px 20px 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+
+    .status-banner {
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 0.92rem;
+      background: #e0f2fe;
+      color: #0369a1;
+      border-left: 4px solid #0284c7;
+    }
+
+    .status-banner.error {
+      background: #fee2e2;
+      color: #991b1b;
+      border-left-color: #dc2626;
+    }
+
+    /* การ์ดสรุปตัวเลข KPI */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+    }
+
+    .kpi-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+    }
+
+    .kpi-label {
+      font-size: 0.88rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .kpi-value {
+      font-size: 1.85rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .kpi-sub {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* กล่องตาราง */
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .panel-header h2 {
+      font-size: 1.1rem;
+      color: var(--text);
+    }
+
+    .filters {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .filters select,
+    .filters input {
+      padding: 8px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-family: "Sarabun", sans-serif;
+      font-size: 0.95rem;
+      outline: none;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      border-bottom: 2px solid var(--border);
+      margin-bottom: 16px;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      padding: 10px 18px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+    }
+
+    .tab-btn.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.94rem;
+    }
+
+    th, td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    th {
+      background: #f8fafc;
+      color: #334155;
+      font-weight: 600;
+      font-size: 0.86rem;
+      white-space: nowrap;
+    }
+
+    tbody tr:hover {
+      background: #f8fafc;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .pill-high { background: #dcfce7; color: #166534; }
+    .pill-mid { background: #fef3c7; color: #92400e; }
+    .pill-low { background: #fee2e2; color: #991b1b; }
+  </style>
+</head>
+<body>
+
+  <!-- ==================== 1. หน้ายืนยันรหัสผู้วิจัย ==================== -->
+  <section id="gate-screen" class="gate-screen">
+    <div class="gate-card">
+      <h1>ระบบจัดการข้อมูลวิจัย</h1>
+      <p>เกมดิจิทัลแบบเลือกทางเดิน: หลักศีล 5 ในชีวิตประจำวัน</p>
+      <form id="pin-form">
+        <input type="password" id="pin-input" placeholder="กรอกรหัสผ่านผู้วิจัย" autocomplete="off" required />
+        <div id="pin-error" class="error-msg hidden">รหัสผ่านไม่ถูกต้อง</div>
+        <button type="submit" class="btn btn-primary btn-full">เข้าสู่ Dashboard</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- ==================== 2. หน้า Dashboard หลัก ==================== -->
+  <section id="dashboard-screen" class="hidden">
+    <header class="topbar">
+      <div class="topbar-title">
+        <h1>Dashboard ข้อมูลวิจัย (E1 & Log Data)</h1>
+        <small>ฐานข้อมูล Firebase Cloud Firestore: fivepreceptsgame</small>
+      </div>
+      <div class="topbar-actions">
+        <button id="btn-refresh" class="btn btn-outline">🔄 โหลดข้อมูลล่าสุด</button>
+        <button id="btn-export-e1" class="btn btn-export">📥 ดาวน์โหลด E1 (CSV)</button>
+        <button id="btn-export-logs" class="btn btn-primary">📥 ดาวน์โหลด Log Data (CSV)</button>
+        <a href="index.html" class="btn btn-outline" style="text-decoration:none;">← กลับหน้าเกม</a>
+      </div>
+    </header>
+
+    <main class="container">
+      <div id="status-banner" class="status-banner">กำลังเชื่อมต่อและดึงข้อมูลจาก Firebase Firestore...</div>
+
+      <!-- KPI สรุปภาพรวม -->
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">จำนวนผู้เรียนทั้งหมด (Unique ID)</div>
+          <div id="kpi-users" class="kpi-value">0</div>
+          <div class="kpi-sub">นับจากรหัสไม่ระบุตัวตน</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">จำนวนการจบด่านทั้งหมด</div>
+          <div id="kpi-completions" class="kpi-value">0</div>
+          <div class="kpi-sub">รายการใน e1_scores</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">ประสิทธิภาพระหว่างเรียนเฉลี่ย (E1)</div>
+          <div id="kpi-e1-avg" class="kpi-value">0.00%</div>
+          <div class="kpi-sub">ค่าเฉลี่ยร้อยละทุกด่านรวมกัน</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">บันทึกการตัดสินใจรายข้อ (Logs)</div>
+          <div id="kpi-logs" class="kpi-value">0</div>
+          <div class="kpi-sub">รายการใน game_logs</div>
+        </div>
+      </div>
+
+      <!-- ตารางสรุปสถิติแยกรายด่าน -->
+      <div class="panel">
+        <div class="panel-header">
+          <h2>สรุปสถิติคะแนนระหว่างเรียน (E1) แยกรายด่าน</h2>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ด่าน</th>
+                <th>จำนวนครั้งที่เล่น (n)</th>
+                <th>คะแนนเฉลี่ย (Mean)</th>
+                <th>ส่วนเบี่ยงเบนมาตรฐาน (S.D.)</th>
+                <th>ร้อยละเฉลี่ย (E1)</th>
+              </tr>
+            </thead>
+            <tbody id="stage-stats-body">
+              <tr><td colspan="5">กำลังคำนวณ...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ตารางข้อมูลดิบพร้อมตัวกรอง -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="tabs">
+            <button class="tab-btn active" data-tab="e1">ตารางคะแนน E1 รายบุคคล</button>
+            <button class="tab-btn" data-tab="logs">ตารางประวัติการตัดสินใจ (Log Data)</button>
+          </div>
+          <div class="filters">
+            <select id="filter-stage">
+              <option value="ALL">ทุกด่าน (ด่าน 1–5)</option>
+              <option value="stage1">ด่านที่ 1 (ปาณาติบาต)</option>
+              <option value="stage2">ด่านที่ 2 (อทินนาทาน)</option>
+              <option value="stage3">ด่านที่ 3 (กาเมสุมิจฉาจาร)</option>
+              <option value="stage4">ด่านที่ 4 (มุสาวาท)</option>
+              <option value="stage5">ด่านที่ 5 (สุราเมรัย)</option>
+            </select>
+            <input type="text" id="filter-id" placeholder="ค้นหารหัสผู้เรียน เช่น S001" />
+          </div>
+        </div>
+
+        <!-- Tab 1: E1 Scores -->
+        <div id="tab-e1" class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>วัน-เวลาที่จบด่าน</th>
+                <th>รหัสผู้เรียน</th>
+                <th>ด่าน</th>
+                <th>คะแนนที่ได้</th>
+                <th>คะแนนเต็ม</th>
+                <th>ร้อยละ (E1)</th>
+              </tr>
+            </thead>
+            <tbody id="e1-table-body">
+              <tr><td colspan="6">ยังไม่มีข้อมูล</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Tab 2: Log Data -->
+        <div id="tab-logs" class="table-wrap hidden">
+          <table>
+            <thead>
+              <tr>
+                <th>วัน-เวลา</th>
+                <th>รหัสผู้เรียน</th>
+                <th>ด่าน</th>
+                <th>บริบท</th>
+                <th>รหัสตัวเลือก</th>
+                <th>ทางเลือกที่ตัดสินใจ</th>
+                <th>คะแนน</th>
+                <th>ผลการประเมิน</th>
+                <th>เวลาคิด (วินาที)</th>
+              </tr>
+            </thead>
+            <tbody id="logs-table-body">
+              <tr><td colspan="9">ยังไม่มีข้อมูล</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </section>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+      getFirestore,
+      collection,
+      getDocs
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // รหัสผ่านเข้าหน้าผู้วิจัย (เปลี่ยนได้ตามต้องการ)
+    const ADMIN_PIN = "2569";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCPZfEYK2cLUizLnb9ORpCJmF9gzHN998U",
+      authDomain: "fivepreceptsgame.firebaseapp.com",
+      projectId: "fivepreceptsgame",
+      storageBucket: "fivepreceptsgame.firebasestorage.app",
+      messagingSenderId: "587040625445",
+      appId: "1:587040625445:web:6a76f0be1230b778d180cc",
+      measurementId: "G-E88SCHB9ZW"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    let allE1 = [];
+    let allLogs = [];
+
+    const stageLabels = {
+      stage1: "ด่านที่ 1: ปาณาติบาต + เมตตากรุณา",
+      stage2: "ด่านที่ 2: อทินนาทาน + สัมมาอาชีวะ",
+      stage3: "ด่านที่ 3: กาเมสุมิจฉาจาร + กามสังวร",
+      stage4: "ด่านที่ 4: มุสาวาท + สัจจะ",
+      stage5: "ด่านที่ 5: สุราเมรัย + สติสัมปชัญญะ"
+    };
+
+    function formatDate(ts) {
+      if (!ts) return "-";
+      const date = ts.toDate ? ts.toDate() : new Date(ts);
+      if (isNaN(date.getTime())) return "-";
+      return date.toLocaleString("th-TH", {
+        year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit", second: "2-digit"
+      });
+    }
+
+    function getMillis(ts) {
+      if (!ts) return 0;
+      return ts.toMillis ? ts.toMillis() : new Date(ts).getTime() || 0;
+    }
+
+    function calcSD(values) {
+      if (values.length <= 1) return 0;
+      const mean = values.reduce((a, b) => a + b, 0) / values.length;
+      const variance = values.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / (values.length - 1);
+      return Math.sqrt(variance);
+    }
+
+    async function fetchAllData() {
+      const banner = document.getElementById("status-banner");
+      banner.className = "status-banner";
+      banner.textContent = "กำลังดึงข้อมูลล่าสุดจาก Firebase Cloud Firestore...";
+
+      try {
+        const [e1Snap, logSnap] = await Promise.all([
+          getDocs(collection(db, "e1_scores")),
+          getDocs(collection(db, "game_logs"))
+        ]);
+
+        allE1 = e1Snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => getMillis(b.completedAt) - getMillis(a.completedAt));
+
+        allLogs = logSnap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => getMillis(b.timestamp) - getMillis(a.timestamp));
+
+        updateKPIs();
+        renderStageStats();
+        renderTables();
+
+        banner.textContent = `โหลดข้อมูลสำเร็จ: พบคะแนน E1 จำนวน ${allE1.length} รายการ และ Log Data จำนวน ${allLogs.length} รายการ (อัปเดตเมื่อ ${new Date().toLocaleTimeString("th-TH")})`;
+      } catch (err) {
+        console.error(err);
+        banner.className = "status-banner error";
+        banner.textContent = `ไม่สามารถอ่านข้อมูลได้: ${err.message} (กรุณาตรวจสอบว่าได้ตั้งค่า Firestore Rules ให้ allow read: if true; แล้ว)`;
+      }
+    }
+
+    function updateKPIs() {
+      const uniqueIds = new Set([
+        ...allE1.map((r) => r.anonymousId),
+        ...allLogs.map((r) => r.anonymousId)
+      ].filter(Boolean));
+
+      const avgPct = allE1.length > 0
+        ? allE1.reduce((sum, r) => sum + (Number(r.percentage) || 0), 0) / allE1.length
+        : 0;
+
+      document.getElementById("kpi-users").textContent = uniqueIds.size;
+      document.getElementById("kpi-completions").textContent = allE1.length;
+      document.getElementById("kpi-e1-avg").textContent = `${avgPct.toFixed(2)}%`;
+      document.getElementById("kpi-logs").textContent = allLogs.length;
+    }
+
+    function renderStageStats() {
+      const tbody = document.getElementById("stage-stats-body");
+      tbody.innerHTML = "";
+
+      Object.keys(stageLabels).forEach((stageKey) => {
+        const rows = allE1.filter((r) => r.stageId === stageKey);
+        const n = rows.length;
+        const scores = rows.map((r) => Number(r.totalScore) || 0);
+        const pcts = rows.map((r) => Number(r.percentage) || 0);
+
+        const meanScore = n > 0 ? (scores.reduce((a, b) => a + b, 0) / n).toFixed(2) : "-";
+        const sdScore = n > 1 ? calcSD(scores).toFixed(2) : (n === 1 ? "0.00" : "-");
+        const meanPct = n > 0 ? `${(pcts.reduce((a, b) => a + b, 0) / n).toFixed(2)}%` : "-";
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><strong>${stageLabels[stageKey]}</strong></td>
+          <td>${n}</td>
+          <td>${meanScore} / 9</td>
+          <td>${sdScore}</td>
+          <td><strong>${meanPct}</strong></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function getFilteredData() {
+      const stageFilter = document.getElementById("filter-stage").value;
+      const idFilter = document.getElementById("filter-id").value.trim().toUpperCase();
+
+      const filterFn = (item) => {
+        const matchStage = stageFilter === "ALL" || item.stageId === stageFilter;
+        const matchId = !idFilter || (item.anonymousId || "").toUpperCase().includes(idFilter);
+        return matchStage && matchId;
+      };
+
+      return {
+        e1: allE1.filter(filterFn),
+        logs: allLogs.filter(filterFn)
+      };
+    }
+
+    function renderTables() {
+      const { e1, logs } = getFilteredData();
+
+      const e1Body = document.getElementById("e1-table-body");
+      if (e1.length === 0) {
+        e1Body.innerHTML = `<tr><td colspan="6">ไม่พบข้อมูลคะแนน E1 ตามเงื่อนไขที่เลือก</td></tr>`;
+      } else {
+        e1Body.innerHTML = e1.map((r) => {
+          const pct = Number(r.percentage) || 0;
+          const pillClass = pct >= 80 ? "pill-high" : pct >= 50 ? "pill-mid" : "pill-low";
+          return `
+            <tr>
+              <td>${formatDate(r.completedAt)}</td>
+              <td><strong>${r.anonymousId || "-"}</strong></td>
+              <td>${stageLabels[r.stageId] || r.stageId || "-"}</td>
+              <td>${r.totalScore ?? "-"}</td>
+              <td>${r.maxScore ?? 9}</td>
+              <td><span class="pill ${pillClass}">${pct}%</span></td>
+            </tr>
+          `;
+        }).join("");
+      }
+
+      const logsBody = document.getElementById("logs-table-body");
+      if (logs.length === 0) {
+        logsBody.innerHTML = `<tr><td colspan="9">ไม่พบข้อมูล Log Data ตามเงื่อนไขที่เลือก</td></tr>`;
+      } else {
+        logsBody.innerHTML = logs.map((r) => {
+          const score = Number(r.score) || 0;
+          const pillClass = score >= 3 ? "pill-high" : score >= 1 ? "pill-mid" : "pill-low";
+          return `
+            <tr>
+              <td>${formatDate(r.timestamp)}</td>
+              <td><strong>${r.anonymousId || "-"}</strong></td>
+              <td>${r.stageId || "-"}</td>
+              <td>${r.context || "-"}</td>
+              <td>${r.choiceId || "-"}</td>
+              <td>${r.choiceText || "-"}</td>
+              <td><span class="pill ${pillClass}">${score}</span></td>
+              <td>${r.preceptStatus || "-"}</td>
+              <td>${r.timeSpentSec ?? "-"}</td>
+            </tr>
+          `;
+        }).join("");
+      }
+    }
+
+    // ฟังก์ชันส่งออก CSV (ใส่ BOM \uFEFF เพื่อให้อ่านภาษาไทยใน Excel ได้สมบูรณ์)
+    function downloadCSV(filename, headers, rows) {
+      const escapeCell = (val) => {
+        const str = String(val ?? "").replace(/"/g, '""');
+        return `"${str}"`;
+      };
+      const csvLines = [
+        headers.map(escapeCell).join(","),
+        ...rows.map((row) => row.map(escapeCell).join(","))
+      ];
+      const blob = new Blob(["\uFEFF" + csvLines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    document.getElementById("btn-export-e1").addEventListener("click", () => {
+      const { e1 } = getFilteredData();
+      if (e1.length === 0) return alert("ไม่มีข้อมูลคะแนน E1 สำหรับส่งออก");
+      const headers = ["CompletedAt", "AnonymousID", "StageID", "StageTitle", "TotalScore", "MaxScore", "Percentage_E1"];
+      const rows = e1.map((r) => [
+        formatDate(r.completedAt), r.anonymousId, r.stageId, r.stageTitle || stageLabels[r.stageId] || "",
+        r.totalScore, r.maxScore, r.percentage
+      ]);
+      downloadCSV(`e1_scores_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+    });
+
+    document.getElementById("btn-export-logs").addEventListener("click", () => {
+      const { logs } = getFilteredData();
+      if (logs.length === 0) return alert("ไม่มีข้อมูล Log Data สำหรับส่งออก");
+      const headers = ["Timestamp", "AnonymousID", "StageID", "NodeID", "Context", "ChoiceID", "ChoiceText", "Score", "PreceptStatus", "TimeSpentSec"];
+      const rows = logs.map((r) => [
+        formatDate(r.timestamp), r.anonymousId, r.stageId, r.nodeId, r.context,
+        r.choiceId, r.choiceText, r.score, r.preceptStatus, r.timeSpentSec
+      ]);
+      downloadCSV(`game_logs_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+    });
+
+    // สลับแท็บ
+    document.querySelectorAll(".tab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        const tab = btn.dataset.tab;
+        document.getElementById("tab-e1").classList.toggle("hidden", tab !== "e1");
+        document.getElementById("tab-logs").classList.toggle("hidden", tab !== "logs");
+      });
+    });
+
+    document.getElementById("filter-stage").addEventListener("change", renderTables);
+    document.getElementById("filter-id").addEventListener("input", renderTables);
+    document.getElementById("btn-refresh").addEventListener("click", fetchAllData);
+
+    // ตรวจสอบรหัสผ่านผู้วิจัย
+    document.getElementById("pin-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const pin = document.getElementById("pin-input").value.trim();
+      if (pin === ADMIN_PIN) {
+        document.getElementById("gate-screen").classList.add("hidden");
+        document.getElementById("dashboard-screen").classList.remove("hidden");
+        fetchAllData();
+      } else {
+        document.getElementById("pin-error").classList.remove("hidden");
+      }
+    });
+  </script>
+</body>
+</html>
