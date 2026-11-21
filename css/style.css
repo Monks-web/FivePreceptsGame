@@ -445,11 +445,16 @@ h1, h2, h3, h4, .speaker-name, .btn {
 }
 
 .bg-temple {
-  background: linear-gradient(180deg, #fbbf24 0%, #fde68a 42%, #fef3c7 62%, #b08968 62%, #7f5539 100%);
+  background: url("../assets/bg-temple.jpg") center / cover no-repeat;
 }
 
 .bg-school {
-  background: linear-gradient(180deg, #93c5fd 0%, #dbeafe 45%, #eff6ff 62%, #cbd5e1 62%, #94a3b8 100%);
+  background: url("../assets/bg-school.jpg") center / cover no-repeat;
+}
+/* ซ่อนฉากวาด SVG เดิมเฉพาะฉากที่ใช้รูปภาพจริงแล้ว */
+.bg-temple .vn-scenery,
+.bg-school .vn-scenery {
+  display: none;
 }
 
 .bg-online {
