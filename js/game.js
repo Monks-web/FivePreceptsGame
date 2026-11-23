@@ -22,7 +22,8 @@ const CHARACTER_IMAGES = {
   tonkla: "assets/tonkla.png",
   keng: "assets/keng.png",
   monk: "assets/monk.png",
-  junior: "assets/junior.png"
+  junior: "assets/junior.png",
+  teen: "assets/teen.png"
 };
 
 // โหลดภาพทั้งหมดล่วงหน้าตั้งแต่เปิดหน้าเว็บเพื่อลดอาการกระตุกตอนเปลี่ยนฉาก
@@ -35,7 +36,8 @@ const PRELOAD_ASSETS = [
   "assets/tonkla.png",
   "assets/keng.png",
   "assets/monk.png",
-  "assets/junior.png"
+  "assets/junior.png",
+  "assets/teen.png"
 ];
 
 PRELOAD_ASSETS.forEach((src) => {
@@ -206,7 +208,8 @@ function buildFallbackSVG(characterId, emotion = "ปกติ") {
     tonkla: { robe: "#d97706", inner: "#b45309", skin: "#f6d5b0" },
     keng: { robe: "#c2410c", inner: "#9a3412", skin: "#efc79c" },
     monk: { robe: "#92400e", inner: "#78350f", skin: "#e8be94" },
-    junior: { robe: "#ea580c", inner: "#c2410c", skin: "#f8dcc0" }
+    junior: { robe: "#ea580c", inner: "#c2410c", skin: "#f8dcc0" },
+    teen: { robe: "#cbd5e1", inner: "#475569", skin: "#efc79c" }
   };
   const p = palettes[characterId] || palettes.tonkla;
   let mouthPath = "M88 106 Q100 115 112 106";
