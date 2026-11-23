@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Research Dashboard — คะแนน E1 และ Log Data</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🪷</text></svg>" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -352,9 +351,9 @@
           <div class="kpi-sub">นับจากรหัสไม่ระบุตัวตน</div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-label">จำนวนการจบด่านทั้งหมด</div>
+          <div class="kpi-label">จำนวนการจบด่านครั้งแรก</div>
           <div id="kpi-completions" class="kpi-value">0</div>
-          <div class="kpi-sub">รายการใน e1_scores</div>
+          <div class="kpi-sub">คัดกรองเฉพาะการเล่นแรกสุด</div>
         </div>
         <div class="kpi-card">
           <div class="kpi-label">ประสิทธิภาพระหว่างเรียนเฉลี่ย (E1)</div>
@@ -371,7 +370,7 @@
       <!-- ตารางสรุปสถิติแยกรายด่าน -->
       <div class="panel">
         <div class="panel-header">
-          <h2>สรุปสถิติคะแนนระหว่างเรียน (E1) แยกรายด่าน</h2>
+          <h2>สรุปสถิติคะแนนระหว่างเรียน (E1) แยกรายด่าน (นับเฉพาะการเล่นครั้งแรก)</h2>
         </div>
         <div class="table-wrap">
           <table>
@@ -395,7 +394,7 @@
       <div class="panel">
         <div class="panel-header">
           <div class="tabs">
-            <button class="tab-btn active" data-tab="e1">ตารางคะแนน E1 รายบุคคล</button>
+            <button class="tab-btn active" data-tab="e1">ตารางคะแนน E1 (การเล่นครั้งแรก)</button>
             <button class="tab-btn" data-tab="logs">ตารางประวัติการตัดสินใจ (Log Data)</button>
           </div>
           <div class="filters">
@@ -463,8 +462,8 @@
       getDocs
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    // รหัสผ่านเข้าหน้าผู้วิจัย (เปลี่ยนได้ตามต้องการ)
-    const ADMIN_PIN = ",,i,;d";
+    // รหัสผ่านเข้าหน้าผู้วิจัย
+    const ADMIN_PIN = "2569";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCPZfEYK2cLUizLnb9ORpCJmF9gzHN998U",
@@ -512,6 +511,22 @@
       return Math.sqrt(variance);
     }
 
+    // ฟังก์ชันคัดกรองเอาเฉพาะ "การเล่นครั้งแรก" (First Attempt) ของแต่ละผู้เรียนในแต่ละด่าน
+    function getFirstAttemptOnly(records) {
+      const sortedAsc = [...records].sort((a, b) => getMillis(a.completedAt) - getMillis(b.completedAt));
+      const seen = new Set();
+      const firstAttempts = [];
+
+      for (const r of sortedAsc) {
+        const key = `${(r.anonymousId || "").toUpperCase()}_${r.stageId}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          firstAttempts.push(r);
+        }
+      }
+      return firstAttempts.sort((a, b) => getMillis(b.completedAt) - getMillis(a.completedAt));
+    }
+
     async function fetchAllData() {
       const banner = document.getElementById("status-banner");
       banner.className = "status-banner";
@@ -523,9 +538,9 @@
           getDocs(collection(db, "game_logs"))
         ]);
 
-        allE1 = e1Snap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => getMillis(b.completedAt) - getMillis(a.completedAt));
+        const rawE1 = e1Snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        // กรองความซ้ำซ้อนให้ยึดคะแนนการเล่นครั้งแรก สำหรับ SPSS ทันที
+        allE1 = getFirstAttemptOnly(rawE1);
 
         allLogs = logSnap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
@@ -535,11 +550,11 @@
         renderStageStats();
         renderTables();
 
-        banner.textContent = `โหลดข้อมูลสำเร็จ: พบคะแนน E1 จำนวน ${allE1.length} รายการ และ Log Data จำนวน ${allLogs.length} รายการ (อัปเดตเมื่อ ${new Date().toLocaleTimeString("th-TH")})`;
+        banner.textContent = `โหลดข้อมูลสำเร็จ: คะแนน E1 (นับเฉพาะการเล่นครั้งแรก) จำนวน ${allE1.length} รายการ และ Log Data จำนวน ${allLogs.length} รายการ (อัปเดตเมื่อ ${new Date().toLocaleTimeString("th-TH")})`;
       } catch (err) {
         console.error(err);
         banner.className = "status-banner error";
-        banner.textContent = `ไม่สามารถอ่านข้อมูลได้: ${err.message} (กรุณาตรวจสอบว่าได้ตั้งค่า Firestore Rules ให้ allow read: if true; แล้ว)`;
+        banner.textContent = `ไม่สามารถอ่านข้อมูลได้: ${err.message}`;
       }
     }
 
@@ -648,7 +663,7 @@
       }
     }
 
-    // ฟังก์ชันส่งออก CSV (ใส่ BOM \uFEFF เพื่อให้อ่านภาษาไทยใน Excel ได้สมบูรณ์)
+    // ฟังก์ชันส่งออก CSV 
     function downloadCSV(filename, headers, rows) {
       const escapeCell = (val) => {
         const str = String(val ?? "").replace(/"/g, '""');
