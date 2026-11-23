@@ -45,7 +45,7 @@ PRELOAD_ASSETS.forEach((src) => {
   img.src = src;
 });
 
-// ระบบเสียงประกอบเบาๆ ด้วย Web Audio API
+// ==================== ระบบเสียงประกอบและดนตรีพื้นหลัง (Web Audio API) ====================
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
 function playTone(freq, duration = 0.08, type = "sine", volume = 0.05) {
@@ -81,6 +81,98 @@ function playFeedbackSound(score) {
   }
 }
 
+// ดนตรีพื้นหลัง (BGM) แยกตามบรรยากาศของแต่ละฉาก
+const BGM_PATTERNS = {
+  menu: {
+    tempoMs: 650,
+    type: "triangle",
+    volume: 0.024,
+    notes: [523.25, 659.25, 783.99, 659.25, 587.33, 659.25, 523.25, 0]
+  },
+  "bg-temple": {
+    tempoMs: 950,
+    type: "sine",
+    volume: 0.028,
+    notes: [293.66, 329.63, 392.0, 440.0, 587.33, 440.0, 392.0, 0]
+  },
+  "bg-school": {
+    tempoMs: 560,
+    type: "triangle",
+    volume: 0.022,
+    notes: [523.25, 587.33, 659.25, 783.99, 659.25, 587.33, 523.25, 392.0]
+  },
+  "bg-online": {
+    tempoMs: 600,
+    type: "sine",
+    volume: 0.024,
+    notes: [440.0, 523.25, 659.25, 783.99, 659.25, 523.25, 392.0, 440.0]
+  },
+  "bg-dhamma": {
+    tempoMs: 1200,
+    type: "sine",
+    volume: 0.026,
+    notes: [392.0, 493.88, 587.33, 783.99, 587.33, 493.88, 392.0, 0]
+  }
+};
+
+const bgm = {
+  currentMood: null,
+  timer: null,
+  step: 0
+};
+
+function playBgmNote(freq, durationSec, type, volume) {
+  if (!state.soundEnabled || !freq) return;
+  if (audioCtx.state === "suspended") audioCtx.resume();
+
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, now);
+
+  // ค่อยๆ ดังขึ้นและจางลงอย่างนุ่มนวลเพื่อไม่ให้รบกวนการอ่าน
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.linearRampToValueAtTime(volume, now + 0.08);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + durationSec);
+
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start(now);
+  osc.stop(now + durationSec + 0.05);
+}
+
+function stopBGM() {
+  if (bgm.timer) {
+    clearInterval(bgm.timer);
+    bgm.timer = null;
+  }
+}
+
+function startBGM(mood) {
+  const targetMood = BGM_PATTERNS[mood] ? mood : "bg-temple";
+  if (bgm.currentMood === targetMood && bgm.timer) return;
+
+  stopBGM();
+  bgm.currentMood = targetMood;
+  bgm.step = 0;
+
+  if (!state.soundEnabled) return;
+
+  const pattern = BGM_PATTERNS[targetMood];
+  const tick = () => {
+    if (!state.soundEnabled) return;
+    const freq = pattern.notes[bgm.step % pattern.notes.length];
+    playBgmNote(freq, (pattern.tempoMs / 1000) * 1.4, pattern.type, pattern.volume);
+    bgm.step++;
+  };
+
+  tick();
+  bgm.timer = setInterval(tick, pattern.tempoMs);
+}
+
+// ==================== DOM Elements ====================
 const screens = {
   login: document.getElementById("screen-login"),
   menu: document.getElementById("screen-menu"),
@@ -135,7 +227,12 @@ const el = {
 function showScreen(screenKey) {
   Object.values(screens).forEach((s) => s.classList.remove("active"));
   screens[screenKey].classList.add("active");
-  if (screenKey === "menu") renderStageBadges();
+  if (screenKey === "menu") {
+    renderStageBadges();
+    startBGM("menu");
+  } else if (screenKey === "login") {
+    stopBGM();
+  }
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -260,7 +357,7 @@ function typeText(text, onComplete) {
   state.typingTimer = setInterval(() => {
     if (i < text.length) {
       el.vnDialogueText.textContent += text.charAt(i);
-      if (i % 4 === 0) playTone(540, 0.02, "sine", 0.014);
+      if (i % 4 === 0) playTone(540, 0.02, "sine", 0.012);
       i++;
     } else {
       clearInterval(state.typingTimer);
@@ -319,6 +416,9 @@ function renderNode(nodeId) {
 
   const bgClass = node.background || "bg-temple";
   el.vnStage.className = `vn-stage ${bgClass}`;
+
+  // เปลี่ยนดนตรีพื้นหลังให้เข้ากับฉากปัจจุบันอัตโนมัติ
+  startBGM(bgClass);
 
   el.vnContextTag.textContent = `บริบท: ${node.context || "ทั่วไป"}`;
   el.gameLocationLabel.textContent = `สถานที่: ${node.location || "-"}`;
@@ -433,6 +533,7 @@ async function finishStage() {
 
   const percentage = Math.round((state.score / state.maxScore) * 100);
   saveStageStars(state.stageData.stageId, percentage);
+  startBGM("bg-dhamma");
 
   el.summaryStageTitle.textContent = state.stageData.title;
   el.summaryScoreValue.textContent = `${state.score}/${state.maxScore}`;
@@ -503,6 +604,7 @@ el.loginForm.addEventListener("submit", (e) => {
     return;
   }
 
+  if (audioCtx.state === "suspended") audioCtx.resume();
   playTone(660, 0.1, "sine", 0.06);
   el.loginError.classList.add("hidden");
   state.anonymousId = rawId;
@@ -521,10 +623,17 @@ el.btnLogout.addEventListener("click", () => {
 el.btnSoundToggle.addEventListener("click", () => {
   state.soundEnabled = !state.soundEnabled;
   el.btnSoundToggle.textContent = state.soundEnabled ? "🔊" : "🔇";
+  if (state.soundEnabled) {
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    startBGM(bgm.currentMood || "bg-temple");
+  } else {
+    stopBGM();
+  }
 });
 
 document.querySelectorAll(".btn-start-stage").forEach((btn) => {
   btn.addEventListener("click", () => {
+    if (audioCtx.state === "suspended") audioCtx.resume();
     playTone(580, 0.08, "sine", 0.06);
     loadStage(btn.getAttribute("data-stage"));
   });
